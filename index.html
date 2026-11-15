@@ -1,0 +1,280 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CYBER RADAR PRO MAX</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#030711;color:#d9faff;
+ font-family:Arial,sans-serif;padding:15px;
+}
+.container{max-width:500px;margin:auto}
+header{text-align:center;padding:20px 0}
+h1{font-size:23px;color:#00eaff;letter-spacing:3px}
+.sub{font-size:10px;color:#638b9c;letter-spacing:2px}
+.panel{
+ background:#091523;border:1px solid #12384b;
+ border-radius:14px;padding:16px;margin:14px 0;
+ box-shadow:0 0 15px #00cfff0b;
+}
+.heading{font-size:13px;color:#00eaff;margin-bottom:14px}
+.status{display:flex;justify-content:space-between;font-size:12px}
+.green{color:#00ffad}
+.radar{
+ width:260px;height:260px;max-width:85vw;
+ margin:22px auto;border-radius:50%;
+ border:1px solid #00cfff;
+ position:relative;overflow:hidden;
+ background:
+ repeating-radial-gradient(circle,transparent 0 31px,#12475b 32px 33px);
+ box-shadow:0 0 20px #00cfff22,inset 0 0 25px #00cfff11;
+}
+.radar:before{
+ content:"";position:absolute;left:50%;top:0;height:100%;
+ width:1px;background:#12475b;
+}
+.radar:after{
+ content:"";position:absolute;top:50%;left:0;width:100%;
+ height:1px;background:#12475b;
+}
+.sweep{
+ position:absolute;left:50%;bottom:50%;
+ width:50%;height:50%;
+ transform-origin:bottom left;
+ background:linear-gradient(45deg,#00ffbd55,transparent 80%);
+ animation:rotate 3s linear infinite;
+}
+@keyframes rotate{to{transform:rotate(360deg)}}
+.point{
+ position:absolute;width:8px;height:8px;
+ background:#00ffbd;border-radius:50%;
+ box-shadow:0 0 12px #00ffbd;
+}
+button{
+ width:100%;border:1px solid #00eaff;
+ background:#05283b;color:#00eaff;
+ padding:14px;border-radius:8px;
+ font-weight:bold;margin:5px 0;
+}
+button:active{background:#00d9ff;color:#00121c}
+button.stop{border-color:#ff4568;color:#ff4568}
+button:disabled{opacity:.4}
+.row{
+ display:flex;justify-content:space-between;
+ padding:10px 0;border-bottom:1px solid #153044;
+ font-size:12px;
+}
+.value{color:#00eaff}
+input{width:100%;accent-color:#00eaff}
+canvas{width:100%;height:130px}
+.device{
+ padding:12px;background:#102235;
+ border-radius:8px;margin:8px 0;font-size:12px;
+}
+.log{
+ font-size:11px;color:#72a9b9;
+ line-height:1.8;max-height:130px;overflow:auto;
+}
+.footer{text-align:center;font-size:10px;color:#416477;padding:20px}
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+ <h1>CYBER RADAR</h1>
+ <div class="sub">PRO MAX • BLUETOOTH MONITORING</div>
+</header>
+
+<div class="panel">
+ <div class="status">
+  <span>● <span class="green" id="state">SYSTEM READY</span></span>
+  <span>V2.0</span>
+ </div>
+
+ <div class="radar" id="radar">
+  <div class="sweep" id="sweep"></div>
+ </div>
+ <div style="text-align:center;font-size:10px;color:#6597aa">
+  RADAR VISUAL SIMULATION
+ </div>
+</div>
+
+<div class="panel">
+ <div class="heading">01 / BLUETOOTH SCANNER</div>
+ <button onclick="scan()">SCAN BLUETOOTH LE</button>
+ <div id="scanResult" class="device">
+  Belum ada perangkat dipilih.
+ </div>
+ <div style="font-size:10px;color:#65899a">
+  Membutuhkan browser yang mendukung Web Bluetooth,
+  HTTPS atau localhost, serta izin Bluetooth.
+ </div>
+</div>
+
+<div class="panel">
+ <div class="heading">02 / SIGNAL SIMULATOR</div>
+
+ <div class="row">
+  <span>Simulated interference</span>
+  <b class="value" id="level">0%</b>
+ </div>
+
+ <input type="range" min="0" max="100" value="0" id="slider">
+
+ <div class="row">
+  <span>Signal strength</span>
+  <b class="value" id="signal">100%</b>
+ </div>
+ <div class="row">
+  <span>Connection stability</span>
+  <b class="value" id="stability">100%</b>
+ </div>
+
+ <button onclick="start()">START SIMULATION</button>
+ <button class="stop" onclick="stop()">STOP SIMULATION</button>
+</div>
+
+<div class="panel">
+ <div class="heading">03 / SIGNAL GRAPH</div>
+ <canvas id="graph" width="450" height="150"></canvas>
+</div>
+
+<div class="panel">
+ <div class="heading">04 / SYSTEM LOG</div>
+ <div id="logs" class="log">[SYSTEM] Cyber Radar initialized.</div>
+</div>
+
+<div class="footer">
+ CYBER RADAR PRO MAX<br>
+ LOCAL SIMULATION • NO RF TRANSMISSION
+</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let running=false,timer=null;
+let intensity=0;
+let history=Array(45).fill(100);
+let selectedDevice=null;
+
+function log(msg){
+ $("logs").innerHTML=
+ `[${new Date().toLocaleTimeString()}] ${msg}<br>`+
+ $("logs").innerHTML;
+}
+
+function radarPoints(){
+ for(let i=0;i<9;i++){
+  let a=Math.random()*Math.PI*2;
+  let r=35+Math.random()*75;
+  let p=document.createElement("div");
+  p.className="point";
+  p.style.left=(130+Math.cos(a)*r)+"px";
+  p.style.top=(130+Math.sin(a)*r)+"px";
+  $("radar").appendChild(p);
+ }
+}
+radarPoints();
+
+$("slider").addEventListener("input",e=>{
+ intensity=+e.target.value;
+ $("level").textContent=intensity+"%";
+});
+
+function update(){
+ let signal=Math.max(0,100-intensity*.75-Math.random()*intensity*.2);
+ let stability=Math.max(0,100-intensity+Math.random()*8);
+
+ $("signal").textContent=Math.round(signal)+"%";
+ $("stability").textContent=Math.round(stability)+"%";
+
+ history.push(signal);
+ history.shift();
+ drawGraph();
+}
+
+function drawGraph(){
+ let c=$("graph"),ctx=c.getContext("2d");
+ ctx.clearRect(0,0,c.width,c.height);
+
+ ctx.strokeStyle="#174054";
+ ctx.lineWidth=1;
+ for(let y=0;y<=150;y+=30){
+  ctx.beginPath();ctx.moveTo(0,y);
+  ctx.lineTo(450,y);ctx.stroke();
+ }
+
+ ctx.strokeStyle="#00eaff";
+ ctx.lineWidth=2;
+ ctx.beginPath();
+ history.forEach((v,i)=>{
+  let x=i*10,y=140-v*1.25;
+  i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+ });
+ ctx.stroke();
+}
+
+function start(){
+ if(running)return;
+ running=true;
+ $("state").textContent="SIMULATION ACTIVE";
+ log("Simulation started.");
+ update();
+ timer=setInterval(update,1000);
+}
+
+function stop(){
+ running=false;
+ clearInterval(timer);
+ $("state").textContent="SYSTEM READY";
+ log("Simulation stopped.");
+}
+
+async function scan(){
+ if(!navigator.bluetooth){
+  $("scanResult").textContent=
+   "Web Bluetooth tidak didukung browser ini. Coba Chrome dengan HTTPS.";
+  log("Web Bluetooth API unavailable.");
+  return;
+ }
+
+ try{
+  $("scanResult").textContent="Menunggu pemilihan perangkat...";
+  const device=await navigator.bluetooth.requestDevice({
+   acceptAllDevices:true,
+   optionalServices:[]
+  });
+
+  selectedDevice=device;
+  $("scanResult").innerHTML=
+   "<b>"+escapeHTML(device.name||"Unknown device")+
+   "</b><br>ID: "+escapeHTML(device.id)+
+   "<br>GATT: "+(device.gatt?"Available":"Not connected");
+
+  device.addEventListener("gattserverdisconnected",()=>{
+   log("Device disconnected: "+(device.name||device.id));
+  });
+
+  log("Device selected: "+(device.name||device.id));
+
+ }catch(e){
+  $("scanResult").textContent="Scan dibatalkan atau gagal: "+e.message;
+  log("Scan error: "+e.message);
+ }
+}
+
+function escapeHTML(s){
+ return String(s).replace(/[&<>"']/g,c=>({
+  "&":"&amp;","<":"&lt;",">":"&gt;",
+  '"':"&quot;","'":"&#39;"
+ }[c]));
+}
+
+drawGraph();
+</script>
+</body>
+</html>
